@@ -61,11 +61,15 @@ CREATE TABLE album_video_map (
     status VARCHAR(20) DEFAULT 'activo', -- activo, suspendido
     PRIMARY KEY (album_id, video_id)
 );
-CREATE TABLE abuse_report (
-    id SERIAL PRIMARY KEY,
-    video_id INT REFERENCES video(id) ON DELETE CASCADE,
-    reporter_id INT REFERENCES user(id),
-    reason TEXT,
-    status VARCHAR(20) DEFAULT 'activo', -- activo, suspendido
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE report (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    video_id BIGINT UNSIGNED NOT NULL,
+    user_id BIGINT UNSIGNED NOT NULL,
+    reason VARCHAR(100) NOT NULL,
+    description TEXT,
+    status VARCHAR(20) NOT NULL DEFAULT 'pendiente',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    resolved_at TIMESTAMP NULL,
+    FOREIGN KEY (video_id) REFERENCES video(id),
+    FOREIGN KEY (user_id) REFERENCES user(id)
 );

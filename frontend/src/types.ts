@@ -10,6 +10,7 @@ export interface User {
   avatarUrl?: string;
   lastLogin?: string;
   createdAt: string;
+  token?: string; // Token de autenticación
 }
 
 export interface Video {

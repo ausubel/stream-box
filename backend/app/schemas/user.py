@@ -18,7 +18,13 @@ class UserUpdate(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     role_id: Optional[int] = None
-    profile_picture: Optional[str] = None
+
+class UserUpdateProfile(BaseModel):
+    username: Optional[str] = None
+    email: Optional[EmailStr] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+
 
 class UserInDB(UserBase):
     id: int
