@@ -1,15 +1,17 @@
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Security
 from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
 from app.config import settings
 from app.schemas.user import TokenData
 from app.services import auth_service
+from app.database import execute_procedure
+from typing import List, Optional
 
 # Configuración de seguridad
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 def verify_password(plain_password, hashed_password):
     """Verifica si la contraseña coincide con el hash."""
@@ -39,15 +41,52 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     )
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
+        user_id: str = payload.get("sub")
+        if user_id is None:
             raise credentials_exception
-        token_data = TokenData(username=username)
+        # Convertir el user_id a entero
+        try:
+            user_id = int(user_id)
+        except ValueError:
+            raise credentials_exception
     except JWTError:
         raise credentials_exception
     
-    # Obtener el usuario de la base de datos
-    user = auth_service.get_user_by_username(token_data.username)
-    if user is None:
+    # Obtener el usuario de la base de datos por ID
+    try:
+        user = execute_procedure("sp_get_user_details_by_id", [user_id])
+        if not user:
+            raise credentials_exception
+        return user[0]
+    except Exception:
         raise credentials_exception
-    return user
+
+# Clase para manejar roles
+class RoleChecker:
+    def __init__(self, allowed_roles: List[int]):
+        self.allowed_roles = allowed_roles
+        
+    def __call__(self, user: dict = Security(get_current_user)):
+        if user["role_id"] not in self.allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No tienes permiso para acceder a este recurso"
+            )
+        return user
+
+# Funciones de conveniencia para roles comunes
+def admin_only():
+    """Dependencia que solo permite acceso a administradores (role_id=3)."""
+    return RoleChecker([3])
+
+def creator_only():
+    """Dependencia que solo permite acceso a creadores (role_id=1)."""
+    return RoleChecker([1])
+
+def admin_or_creator():
+    """Dependencia que permite acceso a administradores y creadores (role_id=1 o 3)."""
+    return RoleChecker([1, 3])
+
+def any_role():
+    """Dependencia que permite acceso a cualquier rol autenticado."""
+    return RoleChecker([1, 2, 3])

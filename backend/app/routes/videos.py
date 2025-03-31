@@ -1,15 +1,17 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from typing import List, Optional
 import json
 from app.schemas.video import VideoCreate, VideoResponse, VideoUpdate
 from app.schemas.response import StandardResponse
 from app.database import execute_procedure
-from app.utils.auth import get_current_user
+from app.utils.auth import get_current_user, any_role
+from app.utils.data_processor import process_video_data, process_single_video_data
 
 router = APIRouter(
     prefix="/videos",
     tags=["videos"],
     responses={404: {"description": "No encontrado"}},
+    dependencies=[Depends(any_role)]
 )
 
 @router.post("/", response_model=StandardResponse[VideoResponse], status_code=status.HTTP_201_CREATED)
@@ -48,26 +50,86 @@ async def get_videos():
     """Obtiene la lista de todos los videos activos."""
     try:
         videos = execute_procedure("sp_get_videos")
-        return StandardResponse(data=videos, message="SUCCESS")
+        # Procesar los datos para convertir campos JSON en estructuras de Python
+        processed_videos = process_video_data(videos)
+        return StandardResponse(data=processed_videos, message="SUCCESS")
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error al obtener videos: {str(e)}"
         )
 
+def get_all_videos_by_type(video_type: str):
+    """Funciu00f3n auxiliar para obtener videos por tipo."""
+    videos = execute_procedure("sp_get_videos_by_type", [video_type])
+    return process_video_data(videos)
+
+@router.get("/live", response_model=StandardResponse[List[VideoResponse]])
+async def get_live_videos():
+    """Obtiene la lista de todos los videos en vivo activos."""
+    try:
+        videos = get_all_videos_by_type("en_vivo")
+        return StandardResponse(data=videos, message="SUCCESS")
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al obtener videos en vivo: {str(e)}"
+        )
+
+@router.get("/recorded", response_model=StandardResponse[List[VideoResponse]])
+async def get_recorded_videos():
+    """Obtiene la lista de todos los videos grabados activos."""
+    try:
+        videos = get_all_videos_by_type("grabado")
+        return StandardResponse(data=videos, message="SUCCESS")
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al obtener videos grabados: {str(e)}"
+        )
+
+@router.get("/search", response_model=StandardResponse[List[VideoResponse]])
+async def search_videos(q: str = Query(..., description="Tu00e9rmino de bu00fasqueda")):
+    """Busca videos por tu00edtulo, canal o palabra clave."""
+    try:
+        videos = execute_procedure("sp_search_videos", [q])
+        processed_videos = process_video_data(videos)
+        return StandardResponse(data=processed_videos, message="SUCCESS")
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al buscar videos: {str(e)}"
+        )
+
+@router.get("/tags", response_model=StandardResponse[List])
+async def get_video_tags():
+    """Obtiene todas las categoru00edas/etiquetas disponibles."""
+    try:
+        tags = execute_procedure("sp_get_video_tags")
+        return StandardResponse(data=tags, message="SUCCESS")
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al obtener etiquetas: {str(e)}"
+        )
+
 @router.get("/{video_id}", response_model=StandardResponse[VideoResponse])
 async def get_video(video_id: int):
-    """Obtiene los detalles de un video especu00edfico."""
+    """Obtiene los detalles de un video especifico."""
     try:
-        video_details = execute_procedure("sp_get_video_by_id", [video_id])
+        video_details = execute_procedure("sp_get_video", [video_id])
         if not video_details:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Video no encontrado"
             )
         
-        return StandardResponse(data=video_details[0], message="SUCCESS")
+        # Procesar los datos para convertir campos JSON en estructuras de Python
+        processed_video = process_single_video_data(video_details[0])
+        return StandardResponse(data=processed_video, message="SUCCESS")
     except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error al obtener video: {str(e)}"
@@ -75,10 +137,11 @@ async def get_video(video_id: int):
 
 @router.get("/user/{user_id}", response_model=StandardResponse[List[VideoResponse]])
 async def get_videos_by_user(user_id: int):
-    """Obtiene todos los videos de un usuario especu00edfico."""
+    """Obtiene todos los videos de un usuario especifico."""
     try:
-        videos = execute_procedure("sp_get_video_by_user_id", [user_id])
-        return StandardResponse(data=videos, message="SUCCESS")
+        videos = execute_procedure("sp_get_videos_by_user", [user_id])
+        processed_videos = process_video_data(videos)
+        return StandardResponse(data=processed_videos, message="SUCCESS")
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -90,57 +153,82 @@ async def update_video(video_id: int, video: VideoUpdate, current_user: dict = D
     """Actualiza los datos de un video."""
     try:
         # Verificar si el video existe
-        video_details = execute_procedure("sp_get_video_by_id", [video_id])
+        video_details = execute_procedure("sp_get_video", [video_id])
         if not video_details:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Video no encontrado"
             )
         
+        # Verificar que el usuario sea el propietario del video o un administrador
+        if video_details[0]["user_id"] != current_user["id"] and current_user["role_id"] != 3:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No tienes permiso para actualizar este video"
+            )
+        
         # Preparar datos para actualizar
-        current_video = video_details[0]
-        title = video.title if video.title is not None else current_video["title"]
-        youtube_link = video.youtube_link if video.youtube_link is not None else current_video["youtube_link"]
-        description = video.description if video.description is not None else current_video["description"]
-        type_value = video.type if video.type is not None else current_video["type"]
-        status = video.status if video.status is not None else current_video["status"]
-        thumbnail = video.thumbnail if video.thumbnail is not None else current_video["thumbnail"]
+        update_data = {}
+        for field, value in video.dict(exclude_unset=True).items():
+            if value is not None:
+                update_data[field] = value
         
         # Convertir tags a JSON si estu00e1n presentes
-        tags_json = json.dumps(video.tags) if video.tags is not None else json.dumps([])
+        tags_json = None
+        if "tags" in update_data:
+            tags_json = json.dumps(update_data["tags"])
         
         # Actualizar video
         execute_procedure(
             "sp_update_video",
-            [video_id, title, youtube_link, description, type_value, status, tags_json, thumbnail]
+            [video_id, 
+             update_data.get("title"), 
+             update_data.get("youtube_link"),
+             update_data.get("description"), 
+             update_data.get("type"),
+             update_data.get("status"),
+             update_data.get("thumbnail"),
+             tags_json]
         )
         
         # Obtener los detalles actualizados
-        updated_video = execute_procedure("sp_get_video_by_id", [video_id])
-        return StandardResponse(data=updated_video[0], message="SUCCESS")
+        updated_video = execute_procedure("sp_get_video", [video_id])
+        processed_video = process_single_video_data(updated_video[0])
+        return StandardResponse(data=processed_video, message="SUCCESS")
     except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error al actualizar video: {str(e)}"
         )
 
-@router.delete("/{video_id}", status_code=status.HTTP_200_OK, response_model=StandardResponse)
+@router.delete("/{video_id}", response_model=StandardResponse)
 async def delete_video(video_id: int, current_user: dict = Depends(get_current_user)):
     """Elimina (marca como suspendido) un video."""
     try:
         # Verificar si el video existe
-        video_details = execute_procedure("sp_get_video_by_id", [video_id])
+        video_details = execute_procedure("sp_get_video", [video_id])
         if not video_details:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Video no encontrado"
             )
         
-        # Eliminar video
+        # Verificar que el usuario sea el propietario del video o un administrador
+        if video_details[0]["user_id"] != current_user["id"] and current_user["role_id"] != 3:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No tienes permiso para eliminar este video"
+            )
+        
+        # Eliminar video (marcar como suspendido)
         execute_procedure("sp_delete_video", [video_id])
         
         return StandardResponse(message="SUCCESS")
     except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error al eliminar video: {str(e)}"

@@ -131,6 +131,28 @@ BEGIN
     WHERE id = p_id;
 END//
 
+DROP PROCEDURE IF EXISTS sp_update_profile//
+
+CREATE PROCEDURE sp_update_profile(
+    IN p_id INT,
+    IN p_username VARCHAR(50),
+    IN p_email VARCHAR(100),
+    IN p_first_name VARCHAR(50),
+    IN p_last_name VARCHAR(50)
+)
+BEGIN
+    IF p_username IN (SELECT username FROM user WHERE id != p_id) OR p_email IN (SELECT email FROM user WHERE id != p_id) THEN
+        SELECT 'El nombre de usuario o el correo electrónico ya existe' AS message;
+    ELSE
+        UPDATE user
+        SET username = p_username,
+            email = p_email,
+            first_name = p_first_name,
+            last_name = p_last_name
+        WHERE id = p_id;
+        SELECT 'SUCCESS' AS message;
+    END IF;
+END//
 
 -- Videos
 
@@ -168,6 +190,22 @@ BEGIN
             WHERE vtm.video_id = v.id AND vt.status = 'activo') AS tags
     FROM video v
     WHERE v.status = 'activo'
+    ORDER BY v.created_at DESC;
+END//
+
+DROP PROCEDURE IF EXISTS sp_get_videos_by_type//
+
+CREATE PROCEDURE sp_get_videos_by_type(
+    IN p_type VARCHAR(20)
+)
+BEGIN
+    SELECT v.id, v.user_id, v.title, v.youtube_link, v.description, v.type, v.status, v.thumbnail, v.created_at,
+           (SELECT JSON_ARRAYAGG(vt.name)
+            FROM video_tag_map vtm
+            JOIN video_tag vt ON vtm.tag_id = vt.id
+            WHERE vtm.video_id = v.id AND vt.status = 'activo') AS tags
+    FROM video v
+    WHERE v.status = 'activo' AND v.type = p_type
     ORDER BY v.created_at DESC;
 END//
 
@@ -341,26 +379,134 @@ BEGIN
     DELETE FROM album_video_map WHERE video_id = p_video_id AND album_id = p_album_id;
 END//
 
-DROP PROCEDURE IF EXISTS sp_get_abuse_reports//
-CREATE PROCEDURE sp_get_abuse_reports()
+-- Procedimiento para obtener todos los videos para moderación
+DROP PROCEDURE IF EXISTS sp_search_videos//
+CREATE PROCEDURE sp_search_videos(
+    IN p_search_term VARCHAR(255)
+)
 BEGIN
-    SELECT id, video_id, reporter_id, reason, created_at FROM abuse_report WHERE status = 'activo';
+    SELECT v.id, v.user_id, v.title, v.youtube_link, v.description, v.type, v.status, v.thumbnail, v.created_at,
+           (SELECT JSON_ARRAYAGG(vt.name)
+            FROM video_tag_map vtm
+            JOIN video_tag vt ON vtm.tag_id = vt.id
+            WHERE vtm.video_id = v.id AND vt.status = 'activo') AS tags,
+           u.username AS channel_name
+    FROM video v
+    JOIN user u ON v.user_id = u.id
+    LEFT JOIN video_tag_map vtm ON v.id = vtm.video_id
+    LEFT JOIN video_tag vt ON vtm.tag_id = vt.id
+    WHERE v.status = 'activo' 
+    AND (
+        v.title LIKE CONCAT('%', p_search_term, '%') OR
+        u.username LIKE CONCAT('%', p_search_term, '%') OR
+        v.description LIKE CONCAT('%', p_search_term, '%') OR
+        vt.name LIKE CONCAT('%', p_search_term, '%')
+    )
+    GROUP BY v.id
+    ORDER BY v.created_at DESC;
 END//
 
-DROP PROCEDURE IF EXISTS sp_create_abuse_report//
-CREATE PROCEDURE sp_create_abuse_report(
+-- Procedimiento para obtener todos los videos para moderación
+DROP PROCEDURE IF EXISTS sp_get_all_videos_for_moderation//
+CREATE PROCEDURE sp_get_all_videos_for_moderation()
+BEGIN
+    SELECT v.id, v.user_id, v.title, v.youtube_link, v.description, v.type, v.status, v.thumbnail, v.created_at,
+           u.username as creator_username,
+           (SELECT COUNT(*) FROM report r WHERE r.video_id = v.id AND r.status = 'pendiente') as report_count
+    FROM video v
+    JOIN user u ON v.user_id = u.id
+    ORDER BY report_count DESC, v.created_at DESC;
+END//
+
+-- Procedimiento para eliminar un video por incumplimiento
+DROP PROCEDURE IF EXISTS sp_delete_video_by_admin//
+CREATE PROCEDURE sp_delete_video_by_admin(
     IN p_video_id INT,
-    IN p_reporter_id INT,
-    IN p_reason TEXT
+    IN p_status VARCHAR(50)
 )
 BEGIN
-    INSERT INTO abuse_report (video_id, reporter_id, reason) VALUES (p_video_id, p_reporter_id, p_reason);
+    UPDATE video
+    SET status = p_status
+    WHERE id = p_video_id;
+    
+    -- Marcar todos los reportes relacionados como resueltos
+    UPDATE report
+    SET status = 'resuelto', resolved_at = CURRENT_TIMESTAMP
+    WHERE video_id = p_video_id AND status = 'pendiente';
+    
+    SELECT 'SUCCESS' AS message;
 END//
 
-DROP PROCEDURE IF EXISTS sp_delete_abuse_report//
-CREATE PROCEDURE sp_delete_abuse_report(
-    IN p_id INT
+-- Procedimiento para crear un reporte de abuso
+DROP PROCEDURE IF EXISTS sp_create_report//
+CREATE PROCEDURE sp_create_report(
+    IN p_video_id INT,
+    IN p_user_id INT,
+    IN p_reason VARCHAR(100),
+    IN p_description TEXT
 )
 BEGIN
-    UPDATE abuse_report SET status = 'suspendido' WHERE id = p_id;
+    INSERT INTO report(video_id, user_id, reason, description)
+    VALUES(p_video_id, p_user_id, p_reason, p_description);
+    
+    SELECT LAST_INSERT_ID() as id;
 END//
+
+-- Procedimiento para obtener todos los reportes
+DROP PROCEDURE IF EXISTS sp_get_all_reports//
+CREATE PROCEDURE sp_get_all_reports()
+BEGIN
+    SELECT r.id, r.video_id, r.user_id, r.reason, r.description, r.status, r.created_at, r.resolved_at,
+           v.title as video_title,
+           u.username as reporter_username
+    FROM report r
+    JOIN video v ON r.video_id = v.id
+    JOIN user u ON r.user_id = u.id
+    ORDER BY r.status = 'pendiente' DESC, r.created_at DESC;
+END//
+
+-- Procedimiento para obtener los reportes de un usuario específico
+DROP PROCEDURE IF EXISTS sp_get_user_reports//
+CREATE PROCEDURE sp_get_user_reports(
+    IN p_user_id INT
+)
+BEGIN
+    SELECT r.id, r.video_id, r.user_id, r.reason, r.description, r.status, r.created_at, r.resolved_at,
+           v.title as video_title,
+           u.username as reporter_username
+    FROM report r
+    JOIN video v ON r.video_id = v.id
+    JOIN user u ON r.user_id = u.id
+    WHERE r.user_id = p_user_id
+    ORDER BY r.created_at DESC;
+END//
+
+-- Procedimiento para obtener un reporte específico
+DROP PROCEDURE IF EXISTS sp_get_report//
+CREATE PROCEDURE sp_get_report(
+    IN p_report_id INT
+)
+BEGIN
+    SELECT r.id, r.video_id, r.user_id, r.reason, r.description, r.status, r.created_at, r.resolved_at,
+           v.title as video_title,
+           u.username as reporter_username
+    FROM report r
+    JOIN video v ON r.video_id = v.id
+    JOIN user u ON r.user_id = u.id
+    WHERE r.id = p_report_id;
+END//
+
+-- Procedimiento para marcar un reporte como resuelto
+DROP PROCEDURE IF EXISTS sp_resolve_report//
+CREATE PROCEDURE sp_resolve_report(
+    IN p_report_id INT
+)
+BEGIN
+    UPDATE report
+    SET status = 'resuelto', resolved_at = CURRENT_TIMESTAMP
+    WHERE id = p_report_id;
+    
+    SELECT 'SUCCESS' AS message;
+END//
+
+DELIMITER ;

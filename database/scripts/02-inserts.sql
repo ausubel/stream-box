@@ -9,9 +9,9 @@ VALUES
 
 INSERT INTO user(username, email, password_hash, first_name, last_name, role_id)
 VALUES
-  ('admin', 'admin@stream-box.com', '$2a$12$UpFrqypEsvCV/ph5eqi8CepwOXsWny1Oo9cAb5s9U2PZJ7JTV.c2K', 'Admin_Name', 'Admin', 3),
-  ('creator', 'creator@stream-box.com', '$2a$12$UpFrqypEsvCV/ph5eqi8CepwOXsWny1Oo9cAb5s9U2PZJ7JTV.c2K', 'Creator_Name', 'Creator', 1),
-  ('consumer', 'consumer@stream-box.com', '$2a$12$UpFrqypEsvCV/ph5eqi8CepwOXsWny1Oo9cAb5s9U2PZJ7JTV.c2K', 'Consumer_Name', 'Consumer', 2);
+  ('admin', 'admin@stream-box.com', '$2b$12$GGEz9G0HtUXPTSsE.g2HSOZt7xgLH8WxEzQtHqKYtLO629jhkzpP6', 'Admin_Name', 'Admin', 3),
+  ('creator', 'creator@stream-box.com', '$2b$12$GGEz9G0HtUXPTSsE.g2HSOZt7xgLH8WxEzQtHqKYtLO629jhkzpP6', 'Creator_Name', 'Creator', 1),
+  ('consumer', 'consumer@stream-box.com', '$2b$12$GGEz9G0HtUXPTSsE.g2HSOZt7xgLH8WxEzQtHqKYtLO629jhkzpP6', 'Consumer_Name', 'Consumer', 2);
 
 INSERT INTO video(user_id, title, youtube_link, description, TYPE, thumbnail)
 VALUES
@@ -51,9 +51,3 @@ VALUES
   (3, 2),
   (3, 3);
 
--- Abuse Reports
-INSERT INTO abuse_report (video_id, reporter_id, reason)
-VALUES
-  (1, 3, 'Inappropriate content'),
-  (3, 2, 'Copyright violation'),
-  (2, 1, 'Misleading information');
