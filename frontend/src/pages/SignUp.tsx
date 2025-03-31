@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { UserPlus } from 'lucide-react';
-
-const API_URL = 'http://localhost:8000';
+import { useAuth } from '../hooks/useAuthHook';
+import { UserRole } from '../types';
 
 export default function SignUp() {
   const [formData, setFormData] = useState({
@@ -12,10 +12,11 @@ export default function SignUp() {
     first_name: '',
     last_name: '',
     password: '',
-    role_id: 1 // Por defecto, rol de consumidor (1)
+    role_id: 2 // Por defecto, rol de consumidor (2)
   });
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const { signUp } = useAuth();
   const navigate = useNavigate();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -36,22 +37,19 @@ export default function SignUp() {
 
     try {
       setLoading(true);
-      const response = await fetch(`${API_URL}/auth/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.detail || 'Error al registrar usuario');
-      }
-
-      toast.success('Usuario registrado correctamente');
-      console.log('Registro exitoso:', result);
+      
+      // Convertir role_id a UserRole
+      let role: UserRole = 'consumer';
+      if (formData.role_id === 1) role = 'creator';
+      
+      await signUp(
+        formData.email,
+        formData.password,
+        formData.username,
+        role
+      );
+      
+      toast.success('Usuario registrado correctamente. Ahora puedes iniciar sesión.');
       navigate('/login');
     } catch (error) {
       console.error('Error en el registro:', error);
@@ -91,6 +89,7 @@ export default function SignUp() {
                 placeholder="Nombre de usuario"
                 value={formData.username}
                 onChange={handleChange}
+                disabled={loading}
               />
             </div>
             <div>
@@ -105,6 +104,7 @@ export default function SignUp() {
                 placeholder="Correo electrónico"
                 value={formData.email}
                 onChange={handleChange}
+                disabled={loading}
               />
             </div>
             <div className="flex">
@@ -118,6 +118,7 @@ export default function SignUp() {
                   placeholder="Nombre"
                   value={formData.first_name}
                   onChange={handleChange}
+                  disabled={loading}
                 />
               </div>
               <div className="w-1/2 pl-1">
@@ -130,6 +131,7 @@ export default function SignUp() {
                   placeholder="Apellido"
                   value={formData.last_name}
                   onChange={handleChange}
+                  disabled={loading}
                 />
               </div>
             </div>
@@ -145,6 +147,7 @@ export default function SignUp() {
                 placeholder="Contraseña"
                 value={formData.password}
                 onChange={handleChange}
+                disabled={loading}
               />
             </div>
             <div>
@@ -159,7 +162,23 @@ export default function SignUp() {
                 placeholder="Confirmar contraseña"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
+                disabled={loading}
               />
+            </div>
+            <div>
+              <label htmlFor="role_id" className="sr-only">Tipo de cuenta</label>
+              <select
+                id="role_id"
+                name="role_id"
+                required
+                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                value={formData.role_id}
+                onChange={handleChange}
+                disabled={loading}
+              >
+                <option value="2">Consumidor</option>
+                <option value="1">Creador</option>
+              </select>
             </div>
           </div>
 
