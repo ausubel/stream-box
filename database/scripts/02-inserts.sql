@@ -11,13 +11,16 @@ INSERT INTO user(username, email, password_hash, first_name, last_name, role_id)
 VALUES
   ('admin', 'admin@stream-box.com', '$2b$12$GGEz9G0HtUXPTSsE.g2HSOZt7xgLH8WxEzQtHqKYtLO629jhkzpP6', 'Admin_Name', 'Admin', 3),
   ('creator', 'creator@stream-box.com', '$2b$12$GGEz9G0HtUXPTSsE.g2HSOZt7xgLH8WxEzQtHqKYtLO629jhkzpP6', 'Creator_Name', 'Creator', 1),
-  ('consumer', 'consumer@stream-box.com', '$2b$12$GGEz9G0HtUXPTSsE.g2HSOZt7xgLH8WxEzQtHqKYtLO629jhkzpP6', 'Consumer_Name', 'Consumer', 2);
+  ('consumer', 'consumer@stream-box.com', '$2b$12$GGEz9G0HtUXPTSsE.g2HSOZt7xgLH8WxEzQtHqKYtLO629jhkzpP6', 'Consumer_Name', 'Consumer', 2),
+  ('testConsumer', 'testConsumer@stream-box.com', '$2b$12$GGEz9G0HtUXPTSsE.g2HSOZt7xgLH8WxEzQtHqKYtLO629jhkzpP6', 'Consumer_Name', 'Consumer', 2);
 
 INSERT INTO video(user_id, title, youtube_link, description, TYPE, thumbnail)
 VALUES
-  (1, 'Video 1', 'https://youtu.be/UNsHu05UVeY?si=SDcLfXVsYO0ZYyvp', 'Description 1', 'en_vivo', 'https://i.ytimg.com/vi/1/mq1.jpg'),
-  (1, 'Video 2', 'https://youtu.be/ES60TsyqrAA?si=I7UsX8d5Z0jmviqk', 'Description 2', 'en_vivo', 'https://i.ytimg.com/vi/2/mq1.jpg'),
-  (1, 'Video 3', 'https://www.youtube.com/watch?v=O8ldvZVZ_cw', 'Description 3', 'en_vivo', 'https://i.ytimg.com/vi/3/mq1.jpg');
+  (1, 'Video 1', 'https://youtu.be/UNsHu05UVeY?si=SDcLfXVsYO0ZYyvp', 'Description 1', 'grabado', NULL),
+  (1, 'Video 2', 'https://youtu.be/ES60TsyqrAA?si=I7UsX8d5Z0jmviqk', 'Description 2', 'grabado', NULL),
+  (2, 'Video 3', 'https://www.youtube.com/watch?v=O8ldvZVZ_cw', 'Description 3', 'grabado', NULL),
+  (2, 'Video 4', 'https://www.youtube.com/watch?v=g3vbKsbx87I', 'Description 4', 'en_vivo', NULL),
+  (2, 'Video 5', 'https://www.youtube.com/watch?v=jkP1Sw7M2iU', 'Bitcoin', 'en_vivo', NULL);
 
 INSERT INTO video_tag (name)
 VALUES
