@@ -18,7 +18,7 @@ CREATE TABLE user (
     password_hash TEXT NOT NULL,
     first_name VARCHAR(50),
     last_name VARCHAR(50),
-    profile_picture TEXT,
+    profile_picture LONGTEXT,
     role_id INT REFERENCES role(id),
     status VARCHAR(20) DEFAULT 'activo', -- activo, suspendido
     last_login TIMESTAMP,

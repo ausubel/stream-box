@@ -35,6 +35,15 @@ BEGIN
     SELECT id, username, email, password_hash, first_name, last_name, role_id, status, last_login, created_at FROM user WHERE id = p_id;
 END//
 
+DROP PROCEDURE IF EXISTS sp_get_profile_picture//
+
+CREATE PROCEDURE sp_get_profile_picture(
+    IN p_id INT
+)
+BEGIN
+    SELECT profile_picture FROM user WHERE id = p_id;
+END//
+
 DROP PROCEDURE IF EXISTS sp_get_user_details_by_username//
 
 CREATE PROCEDURE sp_get_user_details_by_username(
@@ -123,7 +132,7 @@ DROP PROCEDURE IF EXISTS sp_update_profile_picture//
 
 CREATE PROCEDURE sp_update_profile_picture(
     IN p_id INT,
-    IN p_profile_picture TEXT
+    IN p_profile_picture LONGTEXT
 )
 BEGIN
     UPDATE user

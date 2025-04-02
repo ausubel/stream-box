@@ -18,7 +18,7 @@ function App() {
     <AuthProvider>
       <Router>
         <Routes>
-          {/* Rutas públicas - solo accesibles cuando NO estás autenticado */}
+          {/* Rutas públicas - accesibles sin autenticación */}
           <Route element={<ProtectedRoute requireAuth={false} />}>
             <Route path="login" element={
               <React.Suspense fallback={<div>Loading...</div>}>
@@ -32,14 +32,16 @@ function App() {
             } />
           </Route>
 
-          {/* Rutas protegidas - requieren autenticación */}
-          <Route element={<ProtectedRoute requireAuth={true} />}>
-            <Route path="/" element={<Layout />}>
-              <Route index element={
-                <React.Suspense fallback={<div>Loading...</div>}>
-                  <Home />
-                </React.Suspense>
-              } />
+          {/* Ruta principal - accesible para todos */}
+          <Route path="/" element={<Layout />}>
+            <Route index element={
+              <React.Suspense fallback={<div>Loading...</div>}>
+                <Home />
+              </React.Suspense>
+            } />
+
+            {/* Rutas protegidas - requieren autenticación */}
+            <Route element={<ProtectedRoute requireAuth={true} />}>
               <Route path="settings" element={
                 <React.Suspense fallback={<div>Loading...</div>}>
                   <Settings />
