@@ -79,7 +79,7 @@ const SwiperNavButtons = () => {
   );
 };
 
-export default function Home() {
+function Home() {
   const [liveVideos, setLiveVideos] = useState<Video[]>([]);
   const [recordedVideos, setRecordedVideos] = useState<Video[]>([]);
   const [loading, setLoading] = useState(true);
@@ -459,3 +459,5 @@ export default function Home() {
     </div>
   );
 }
+
+export default Home;

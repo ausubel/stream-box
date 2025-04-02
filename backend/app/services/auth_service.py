@@ -38,15 +38,8 @@ def authenticate_user(username: str, password: str):
             return False
         
         user = user_details[0]
-        print(f"Usuario encontrado: {user['username']}")
-        print(f"Campos disponibles: {list(user.keys())}")
         
-        if 'password_hash' not in user:
-            print("Error: El campo password_hash no está presente en los resultados de la base de datos")
-            return False
-            
         password_match = verify_password(password, user["password_hash"])
-        print(f"Verificación de contraseña: {'Exitosa' if password_match else 'Fallida'}")
         
         if not password_match:
             return False

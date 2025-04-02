@@ -2,18 +2,11 @@ import { User } from '../types';
 
 const API_URL = 'http://localhost:8000';
 
-interface LoginResponse {
-  data: {
-    access_token: string;
-    token_type: string;
-    user?: {
-      id: number;
-      username: string;
-      email: string;
-      role_id: number;
-    }
-  };
+// Interfaz para la respuesta de la API
+interface ApiResponse {
+  data?: any;
   message: string;
+  detail?: string;
 }
 
 interface RegisterData {
@@ -23,12 +16,6 @@ interface RegisterData {
   first_name: string;
   last_name: string;
   role_id: number;
-}
-
-interface ApiResponse {
-  data?: any;
-  message: string;
-  detail?: string;
 }
 
 // Función para convertir role_id a UserRole
@@ -57,29 +44,41 @@ export const authService = {
         },
         body: JSON.stringify({ username: email, password }),
       });
-      console.log(response);
+      
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.detail || 'Error al iniciar sesión');
       }
 
-      const result: LoginResponse = await response.json();
-      console.log('Login response:', result);
+      const rawResult = await response.json();
+      console.log('Raw login response:', JSON.stringify(rawResult, null, 2));
       
-      // Crear objeto de usuario a partir de la respuesta
-      // Como el backend no está devolviendo la información del usuario,
-      // creamos un usuario básico con la información que tenemos
+      // Verificar que la respuesta tenga la estructura esperada
+      if (!rawResult.data || !rawResult.data.access_token) {
+        console.error('Estructura de respuesta inválida:', JSON.stringify(rawResult, null, 2));
+        throw new Error('La respuesta no tiene la estructura esperada');
+      }
+      
+      // Obtener información del usuario desde el backend
+      const token = rawResult.data.access_token;
+      
+      // Crear un objeto de usuario con la información disponible
+      // Si no hay información de usuario en la respuesta, usamos valores por defecto
+      const userData = rawResult.data.user || {};
+      
       const user: User = {
-        id: '1', // ID temporal
-        username: email, // Usamos el email como username temporal
-        email: email,
-        role: 'consumer', // Rol por defecto
+        id: userData.id ? userData.id.toString() : '0',
+        username: userData.username || email,
+        email: userData.email || email,
+        role: userData.role_id ? getRoleFromId(userData.role_id) : 'consumer',
         createdAt: new Date().toISOString(),
-        token: result.data.access_token
+        token: token
       };
 
-      // Guardar token en localStorage
-      localStorage.setItem('token', result.data.access_token);
+      console.log('Usuario creado:', user);
+
+      // Guardar token y usuario en localStorage
+      localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
 
       return user;
@@ -130,7 +129,36 @@ export const authService = {
     if (!userStr) return null;
 
     try {
-      return JSON.parse(userStr) as User;
+      const userData = JSON.parse(userStr);
+      console.log('Usuario recuperado de localStorage (raw):', userData);
+      
+      // Asegurarse de que el rol es válido
+      if (!userData.role || !['consumer', 'creator', 'admin'].includes(userData.role)) {
+        console.error('Rol de usuario no válido:', userData.role);
+        // Si el rol no es válido, intentamos obtenerlo del role_id si está disponible
+        if (userData.role_id) {
+          userData.role = getRoleFromId(userData.role_id);
+        } else {
+          // Si no hay role_id, asignamos un rol por defecto
+          userData.role = 'consumer';
+        }
+      }
+      
+      const user: User = {
+        id: userData.id || '0',
+        username: userData.username || '',
+        email: userData.email || '',
+        role: userData.role || 'consumer',
+        createdAt: userData.createdAt || new Date().toISOString(),
+        token: userData.token || '',
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        avatarUrl: userData.avatarUrl,
+        lastLogin: userData.lastLogin
+      };
+      
+      console.log('Usuario recuperado de localStorage (procesado):', user);
+      return user;
     } catch (error) {
       console.error('Error al parsear usuario:', error);
       return null;

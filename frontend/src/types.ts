@@ -25,3 +25,14 @@ export interface Video {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface Album {
+  id: string;
+  title: string;
+  description: string;
+  coverImage: string;
+  userId: string;
+  createdAt: string;
+  updatedAt: string;
+  videoCount: number;
+}

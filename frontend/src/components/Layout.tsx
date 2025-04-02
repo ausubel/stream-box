@@ -44,6 +44,13 @@ export function Layout() {
                   {user?.role === 'admin' && (
                     <NavLink to="/admin" icon={<Users className="h-5 w-5" />} text="Admin" />
                   )}
+                  {/* Información de depuración */}
+                  {user && (
+                    <div className="text-white text-xs bg-gray-800 p-1 rounded absolute top-16 left-0 z-50">
+                      <p>Usuario: {user.username}</p>
+                      <p>Rol: {user.role}</p>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="flex items-center">

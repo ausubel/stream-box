@@ -41,11 +41,19 @@ function App() {
                   <Settings />
                 </React.Suspense>
               } />
+            </Route>
+            
+            {/* Rutas para creadores */}
+            <Route element={<ProtectedRoute requireAuth={true} allowedRoles={['creator', 'admin']} />}>
               <Route path="manage" element={
                 <React.Suspense fallback={<div>Loading...</div>}>
                   <ManageVideos />
                 </React.Suspense>
               } />
+            </Route>
+            
+            {/* Rutas para administradores */}
+            <Route element={<ProtectedRoute requireAuth={true} allowedRoles={['admin']} />}>
               <Route path="admin" element={
                 <React.Suspense fallback={<div>Loading...</div>}>
                   <Admin />
