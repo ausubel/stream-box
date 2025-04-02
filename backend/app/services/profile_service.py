@@ -116,3 +116,24 @@ def change_password(user_id: int, current_password: str, new_password: str):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error al cambiar contraseu00f1a: {str(e)}"
         )
+
+def get_profile_picture(user_id: int):
+    """Obtiene la foto de perfil del usuario."""
+    try:
+        # Obtener los detalles del usuario
+        user_details = execute_procedure("sp_get_profile_picture", [user_id])
+        if not user_details:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Usuario no encontrado"
+            )
+        
+        return user_details[0]["profile_picture"]
+        
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al obtener foto de perfil: {str(e)}"
+        )
