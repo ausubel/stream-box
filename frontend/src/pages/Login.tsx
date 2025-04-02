@@ -18,6 +18,7 @@ export default function Login() {
   const [animating, setAnimating] = useState(false);
   const { signIn } = useAuth();
   const navigate = useNavigate();
+  const API_URL = 'http://localhost:8000';
 
   // Función para manejar el cambio entre formularios con animación
   const toggleForm = (showReg: boolean) => {
@@ -57,7 +58,7 @@ export default function Login() {
     }
     
     try {
-      const response = await fetch('/auth/register', {
+      const response = await fetch(`${API_URL}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

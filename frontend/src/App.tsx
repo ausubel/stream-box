@@ -8,7 +8,6 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 // Lazy load pages
 const Home = React.lazy(() => import('./pages/Home'));
 const Login = React.lazy(() => import('./pages/Login'));
-const SignUp = React.lazy(() => import('./pages/SignUp'));
 const Settings = React.lazy(() => import('./pages/Settings'));
 const ManageVideos = React.lazy(() => import('./pages/ManageVideos'));
 const Admin = React.lazy(() => import('./pages/Admin'));
@@ -23,11 +22,6 @@ function App() {
             <Route path="login" element={
               <React.Suspense fallback={<div>Loading...</div>}>
                 <Login />
-              </React.Suspense>
-            } />
-            <Route path="signup" element={
-              <React.Suspense fallback={<div>Loading...</div>}>
-                <SignUp />
               </React.Suspense>
             } />
           </Route>

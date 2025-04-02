@@ -47,7 +47,8 @@ async def change_password(password_data: PasswordUpdate, current_user: dict = De
 async def update_profile_picture(picture_data: ProfilePictureUpdate, current_user: dict = Depends(get_current_user)):
     """Actualiza la foto de perfil del usuario actual."""
     updated_profile = profile_service.update_profile_picture(current_user["id"], picture_data.profile_picture)
-    return StandardResponse(data=updated_profile, message="SUCCESS")
+    # Solo devolvemos la URL de la imagen como string, no el perfil completo
+    return StandardResponse(data=updated_profile.get("profile_picture", ""), message="SUCCESS")
 
 @router.get("/picture", response_model=StandardResponse[str])
 async def get_profile_picture(current_user: dict = Depends(get_current_user)):

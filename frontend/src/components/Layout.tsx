@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
-import { Home, Video, Settings, Users, LogOut } from 'lucide-react';
+import { Home, Video, Settings, Users, LogOut, LogIn } from 'lucide-react';
 import { useAuth } from '../hooks/useAuthHook';
 
 export function Layout() {
@@ -63,14 +63,12 @@ export function Layout() {
                   </div>
                 ) : (
                   <div className="flex items-center space-x-4">
-                    <Link to="/login" className="text-white hover:text-indigo-300">
-                      Login
-                    </Link>
-                    <Link
-                      to="/signup"
-                      className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700"
+                    <Link 
+                      to="/login" 
+                      className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors duration-200 flex items-center"
                     >
-                      Sign Up
+                      <LogIn className="h-4 w-4 mr-2" />
+                      Login
                     </Link>
                   </div>
                 )}
