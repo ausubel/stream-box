@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, status
-from datetime import timedelta
+from datetime import timedelta, datetime, timezone
 from pydantic import BaseModel
 from app.schemas.user import UserCreate, UserResponse, Token
 from app.schemas.response import StandardResponse
@@ -32,22 +32,26 @@ async def login(login_data: LoginRequest):
             detail="Nombre de usuario o contraseña incorrectos",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    print(user)
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = auth_service.create_access_token(
         data={"sub": str(user["id"])}, expires_delta=access_token_expires
     )
     
+    # Create a user response object with only the fields we have
+    user_response = {
+        "id": user["id"],
+        "username": user["username"],
+        "email": user["email"],
+        "role_id": user["role_id"],
+        "status": user.get("status", "active"),  # Default to active if not present
+        "created_at": user.get("created_at", datetime.now(timezone.utc))  # Default to now if not present
+    }
+    
     return StandardResponse(
         data={
             "access_token": access_token, 
             "token_type": "bearer",
-            "user": {
-                "id": user["id"],
-                "username": user["username"],
-                "email": user["email"],
-                "role_id": user["role_id"]
-            }
+            "user": user_response
         },
         message="SUCCESS"
     )

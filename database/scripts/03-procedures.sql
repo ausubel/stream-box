@@ -202,6 +202,22 @@ BEGIN
     ORDER BY v.created_at DESC;
 END//
 
+DROP PROCEDURE IF EXISTS sp_get_videos_by_user//
+
+CREATE PROCEDURE sp_get_videos_by_user(
+    IN p_user_id INT
+)
+BEGIN
+    SELECT v.id, v.user_id, v.title, v.youtube_link, v.description, v.type, v.status, v.thumbnail, v.created_at,
+           (SELECT JSON_ARRAYAGG(vt.name)
+            FROM video_tag_map vtm
+            JOIN video_tag vt ON vtm.tag_id = vt.id
+            WHERE vtm.video_id = v.id AND vt.status = 'activo') AS tags
+    FROM video v
+    WHERE v.status = 'activo' AND v.user_id = p_user_id
+    ORDER BY v.created_at DESC;
+END//
+
 DROP PROCEDURE IF EXISTS sp_get_videos_by_type//
 
 CREATE PROCEDURE sp_get_videos_by_type(

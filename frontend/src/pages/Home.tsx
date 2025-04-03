@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Pagination, Autoplay } from 'swiper/modules';
 import 'swiper/css';
@@ -6,6 +6,7 @@ import 'swiper/css/navigation';
 import 'swiper/css/pagination';
 import { toast } from 'sonner';
 import { ChevronRight, ChevronLeft, Play } from 'lucide-react';
+import { getYoutubeThumbnail } from '../services/videoService';
 
 // Tipo para los videos
 interface Video {
@@ -31,7 +32,7 @@ const extractYoutubeId = (url: string): string => {
 // Componente para la tarjeta de video
 const VideoCard = ({ video, onClick }: { video: Video; onClick: () => void }) => {
   const videoId = extractYoutubeId(video.youtube_link);
-  const thumbnailUrl = video.thumbnail || `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+  const thumbnailUrl = video.thumbnail || (videoId ? getYoutubeThumbnail(videoId) : '');
   
   return (
     <div 

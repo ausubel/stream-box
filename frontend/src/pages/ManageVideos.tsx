@@ -2,9 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuthHook';
 import type { Video } from '../types';
-import { videoService } from '../services/videoService';
+import { videoService, getYoutubeThumbnail, extractYoutubeId } from '../services/videoService';
 import { Album, albumService } from '../services/albumService';
 import { Share2, Edit, Trash2, Plus, Youtube, Tag, FileVideo } from 'lucide-react';
+
+// Definir el tipo para las etiquetas que vienen del backend
+interface TagObject {
+  id: number;
+  name: string;
+}
 
 export default function ManageVideos() {
   const { user } = useAuth();
@@ -13,6 +19,7 @@ export default function ManageVideos() {
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [tagInput, setTagInput] = useState('');
   const [tags, setTags] = useState<string[]>([]);
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
   const [status, setStatus] = useState<'live' | 'recorded'>('recorded');
   const [videos, setVideos] = useState<Video[]>([]);
   const [albums, setAlbums] = useState<Album[]>([]);
@@ -38,6 +45,7 @@ export default function ManageVideos() {
     if (user && user.role === 'creator') {
       fetchVideos();
       fetchAlbums();
+      fetchAvailableTags();
     }
   }, [user]);
 
@@ -84,10 +92,29 @@ export default function ManageVideos() {
     }
   };
 
+  const fetchAvailableTags = async () => {
+    try {
+      const tagsResponse = await videoService.getTags();
+      // Convertir los objetos de etiquetas a un formato utilizable
+      const formattedTags = tagsResponse.map((tag: string | TagObject) => 
+        typeof tag === 'object' && 'name' in tag ? tag.name : tag
+      );
+      setAvailableTags(formattedTags);
+      console.log('Etiquetas disponibles:', tagsResponse);
+    } catch (error) {
+      console.error('Error al cargar etiquetas:', error);
+      // No mostramos toast de error para no molestar al usuario
+    }
+  };
+
   const handleAddTag = () => {
     if (tagInput.trim() && !tags.includes(tagInput.trim())) {
-      setTags([...tags, tagInput.trim()]);
+      const newTags = [...tags, tagInput.trim()];
+      console.log('Agregando etiqueta:', tagInput.trim(), 'Tags actuales:', newTags);
+      setTags(newTags);
       setTagInput('');
+    } else if (tagInput.trim() && tags.includes(tagInput.trim())) {
+      toast.error('Esta etiqueta ya existe');
     }
   };
 
@@ -170,8 +197,9 @@ export default function ManageVideos() {
       } catch (error) {
         toast.error('Error al eliminar video');
         console.error(error);
-    } finally {
-      setLoading(false);
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -349,29 +377,69 @@ export default function ManageVideos() {
                 onChange={(e) => setTagInput(e.target.value)}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                 placeholder="Agregar etiqueta..."
-                onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTag())}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddTag();
+                  }
+                }}
+                list="available-tags"
               />
+              <datalist id="available-tags">
+                {availableTags
+                  .filter(tag => !tags.includes(tag))
+                  .map((tag, index) => (
+                    <option key={`tag-option-${tag}-${index}`} value={tag} />
+                  ))}
+              </datalist>
               <button
                 type="button"
                 onClick={handleAddTag}
-                className="ml-2 inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                className="ml-2 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
               >
-                <Tag className="h-4 w-4 mr-1" />
+                <Tag className="h-5 w-5 mr-1" />
                 Agregar
               </button>
             </div>
+            
+            {/* Etiquetas populares */}
+            {availableTags.length > 0 && (
+              <div className="mt-2">
+                <p className="text-sm text-gray-500 mb-1">Etiquetas populares:</p>
+                <div className="flex flex-wrap gap-1">
+                  {availableTags
+                    .filter(tag => !tags.includes(tag))
+                    .slice(0, 5)
+                    .map((tag, index) => (
+                      <button
+                        key={`popular-tag-${tag}-${index}`}
+                        type="button"
+                        onClick={() => {
+                          if (!tags.includes(tag)) {
+                            setTags([...tags, tag]);
+                          }
+                        }}
+                        className="inline-flex items-center px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded border border-gray-300 hover:bg-gray-200"
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                </div>
+              </div>
+            )}
+            
             {tags.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-2">
                 {tags.map((tag) => (
                   <span
                     key={tag}
-                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800"
+                    className="inline-flex items-center px-2.5 py-1 rounded-md text-sm font-medium bg-purple-100 text-purple-800 border border-purple-300"
                   >
                     {tag}
                     <button
                       type="button"
                       onClick={() => handleRemoveTag(tag)}
-                      className="ml-1.5 h-4 w-4 rounded-full inline-flex items-center justify-center text-indigo-400 hover:text-indigo-600 focus:outline-none"
+                      className="ml-1.5 h-5 w-5 rounded-full inline-flex items-center justify-center text-purple-500 hover:text-purple-700 hover:bg-purple-200 focus:outline-none"
                     >
                       <span className="sr-only">Eliminar</span>
                       ×
@@ -428,7 +496,7 @@ export default function ManageVideos() {
               <div key={video.id} className="border rounded-lg overflow-hidden shadow-sm">
                 <div className="relative">
                   <img
-                    src={video.thumbnailUrl}
+                    src={video.thumbnailUrl || (video.youtubeUrl ? getYoutubeThumbnail(extractYoutubeId(video.youtubeUrl)) : '')}
                     alt={video.title}
                     className="w-full h-40 object-cover"
                   />
@@ -622,7 +690,7 @@ export default function ManageVideos() {
                     {albumVideos.map((video) => (
                       <div key={video.id} className="flex border rounded-lg overflow-hidden shadow-sm">
                         <img
-                          src={video.thumbnailUrl}
+                          src={video.thumbnailUrl || (video.youtubeUrl ? getYoutubeThumbnail(extractYoutubeId(video.youtubeUrl)) : '')}
                           alt={video.title}
                           className="w-24 h-24 object-cover"
                         />

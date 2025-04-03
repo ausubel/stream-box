@@ -38,7 +38,9 @@ export const extractYoutubeId = (url: string): string => {
 
 // Función para obtener la URL de la miniatura de YouTube
 export const getYoutubeThumbnail = (youtubeId: string): string => {
-  return `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`;
+  // Usamos la miniatura por defecto (0.jpg) en lugar de maxresdefault.jpg
+  // ya que maxresdefault.jpg no siempre está disponible
+  return `https://img.youtube.com/vi/${youtubeId}/0.jpg`;
 };
 
 export const videoService = {
@@ -254,8 +256,25 @@ export const videoService = {
         throw new Error(errorData.detail || 'Error al obtener etiquetas');
       }
 
-      const result: ApiResponse<string[]> = await response.json();
-      return result.data;
+      const result: ApiResponse<any[]> = await response.json();
+      
+      // Procesar las etiquetas que pueden venir como objetos o strings
+      const tags: string[] = result.data.map((tag: any) => {
+        if (typeof tag === 'object' && tag !== null) {
+          // Si es un objeto con propiedad 'name', usar esa propiedad
+          if ('name' in tag) {
+            return tag.name;
+          }
+          // Si es un objeto con propiedad 'tag_name', usar esa propiedad
+          if ('tag_name' in tag) {
+            return tag.tag_name;
+          }
+        }
+        // Si es un string o no tiene las propiedades esperadas, devolver el valor tal cual
+        return tag;
+      });
+
+      return tags;
     } catch (error) {
       console.error('Error al obtener etiquetas:', error);
       throw error;

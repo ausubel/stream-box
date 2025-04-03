@@ -106,6 +106,7 @@ async def get_video_tags():
     """Obtiene todas las categoru00edas/etiquetas disponibles."""
     try:
         tags = execute_procedure("sp_get_video_tags")
+        print(tags)
         return StandardResponse(data=tags, message="SUCCESS")
     except Exception as e:
         raise HTTPException(

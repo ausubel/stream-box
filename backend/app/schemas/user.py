@@ -43,6 +43,7 @@ class UserResponse(UserInDB):
 class Token(BaseModel):
     access_token: str
     token_type: str
+    user: Optional[UserInDB] = None
 
 class TokenData(BaseModel):
     username: Optional[str] = None
