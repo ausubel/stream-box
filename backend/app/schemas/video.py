@@ -27,6 +27,7 @@ class VideoInDB(VideoBase):
     id: int
     user_id: int
     created_at: datetime
+    creator_username: Optional[str] = None
     
     class Config:
         from_attributes = True

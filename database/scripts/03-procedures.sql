@@ -23,7 +23,7 @@ CREATE PROCEDURE sp_get_user_details_by_email(
     IN p_email VARCHAR(100)
 )
 BEGIN
-    SELECT id, username, email, password_hash, first_name, last_name, role_id, status, last_login, created_at FROM user WHERE email = p_email;
+    SELECT id, username, email, password_hash, first_name, last_name, role_id, status, last_login, created_at FROM user WHERE email = p_email AND status = 'activo';
 END//
 
 DROP PROCEDURE IF EXISTS sp_get_user_details_by_id//
@@ -32,7 +32,7 @@ CREATE PROCEDURE sp_get_user_details_by_id(
     IN p_id INT
 )
 BEGIN
-    SELECT id, username, email, password_hash, first_name, last_name, role_id, status, last_login, created_at FROM user WHERE id = p_id;
+    SELECT id, username, email, password_hash, first_name, last_name, role_id, status, last_login, created_at FROM user WHERE id = p_id AND status = 'activo';
 END//
 
 DROP PROCEDURE IF EXISTS sp_get_profile_picture//
@@ -50,7 +50,7 @@ CREATE PROCEDURE sp_get_user_details_by_username(
     IN p_username VARCHAR(50)
 )
 BEGIN
-    SELECT id, username, email, password_hash, first_name, last_name, role_id, status, last_login, created_at FROM user WHERE username = p_username;
+    SELECT id, username, email, password_hash, first_name, last_name, role_id, status, last_login, created_at FROM user WHERE username = p_username AND status = 'activo';
 END//
 
 DROP PROCEDURE IF EXISTS sp_get_users//
@@ -102,18 +102,35 @@ BEGIN
     UPDATE user
     SET role_id = p_role_id
     WHERE id = p_id;
+    
+    SELECT id, username, email, first_name, last_name, role_id, status, last_login, created_at 
+    FROM user
+    WHERE id = p_id;
 END//
 
 DROP PROCEDURE IF EXISTS sp_change_status//
 
 CREATE PROCEDURE sp_change_status(
-    IN p_id INT,
+    IN p_user_id INT,
     IN p_status VARCHAR(20)
 )
 BEGIN
-    UPDATE user
-    SET status = p_status
-    WHERE id = p_id;
+    -- Verificar si el usuario es administrador (role_id = 3)
+    DECLARE v_role_id INT;
+    SELECT role_id INTO v_role_id FROM user WHERE id = p_user_id;
+    
+    IF v_role_id = 3 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'No se puede cambiar el estado de un administrador';
+    ELSE
+        UPDATE user
+        SET status = p_status
+        WHERE id = p_user_id;
+        
+        SELECT id, username, email, first_name, last_name, role_id, status, last_login, created_at 
+        FROM user
+        WHERE id = p_user_id;
+    END IF;
 END//
 
 DROP PROCEDURE IF EXISTS sp_update_last_login//
@@ -161,6 +178,47 @@ BEGIN
         WHERE id = p_id;
         SELECT 'SUCCESS' AS message;
     END IF;
+END//
+
+-- Procedimiento para obtener detalles de un usuario por ID
+DROP PROCEDURE IF EXISTS sp_get_user_details_by_id//
+CREATE PROCEDURE sp_get_user_details_by_id(
+    IN p_user_id INT
+)
+BEGIN
+    SELECT id, username, email, first_name, last_name, role_id, status, last_login, created_at 
+    FROM user
+    WHERE id = p_user_id;
+END//
+
+-- Procedimiento para cambiar el rol de un usuario
+DROP PROCEDURE IF EXISTS sp_change_role//
+CREATE PROCEDURE sp_change_role(
+    IN p_user_id INT,
+    IN p_role_id INT
+)
+BEGIN
+    UPDATE user
+    SET role_id = p_role_id
+    WHERE id = p_user_id;
+    
+    SELECT id, username, email, first_name, last_name, role_id, status, last_login, created_at 
+    FROM user
+    WHERE id = p_user_id;
+END//
+
+-- Procedimiento para actualizar la contraseu00f1a de un usuario
+DROP PROCEDURE IF EXISTS sp_update_password_hash//
+CREATE PROCEDURE sp_update_password_hash(
+    IN p_user_id INT,
+    IN p_password_hash VARCHAR(255)
+)
+BEGIN
+    UPDATE user
+    SET password_hash = p_password_hash
+    WHERE id = p_user_id;
+    
+    SELECT 'SUCCESS' AS message;
 END//
 
 -- Videos
@@ -498,6 +556,28 @@ BEGIN
 END//
 
 -- Procedimiento para obtener todos los videos para moderación
+DROP PROCEDURE IF EXISTS sp_get_all_videos_for_moderation//
+CREATE PROCEDURE sp_get_all_videos_for_moderation()
+BEGIN
+    SELECT 
+        v.id, 
+        v.user_id, 
+        v.title, 
+        v.youtube_link, 
+        v.description, 
+        v.type, 
+        v.status, 
+        v.thumbnail, 
+        v.created_at,
+        COALESCE(u.username, 'Usuario eliminado') as creator_username,
+        (SELECT COUNT(*) FROM report r WHERE r.video_id = v.id AND r.status = 'pendiente') as report_count
+    FROM video v
+    LEFT JOIN user u ON v.user_id = u.id
+    WHERE v.status = 'activo'
+    ORDER BY report_count DESC, v.created_at DESC;
+END//
+
+-- Procedimiento para obtener todos los videos para moderación
 DROP PROCEDURE IF EXISTS sp_search_videos//
 CREATE PROCEDURE sp_search_videos(
     IN p_search_term VARCHAR(255)
@@ -522,18 +602,6 @@ BEGIN
     )
     GROUP BY v.id
     ORDER BY v.created_at DESC;
-END//
-
--- Procedimiento para obtener todos los videos para moderación
-DROP PROCEDURE IF EXISTS sp_get_all_videos_for_moderation//
-CREATE PROCEDURE sp_get_all_videos_for_moderation()
-BEGIN
-    SELECT v.id, v.user_id, v.title, v.youtube_link, v.description, v.type, v.status, v.thumbnail, v.created_at,
-           u.username as creator_username,
-           (SELECT COUNT(*) FROM report r WHERE r.video_id = v.id AND r.status = 'pendiente') as report_count
-    FROM video v
-    JOIN user u ON v.user_id = u.id
-    ORDER BY report_count DESC, v.created_at DESC;
 END//
 
 -- Procedimiento para eliminar un video por incumplimiento
@@ -624,7 +692,13 @@ BEGIN
     SET status = 'resuelto', resolved_at = CURRENT_TIMESTAMP
     WHERE id = p_report_id;
     
-    SELECT 'SUCCESS' AS message;
+    SELECT r.id, r.video_id, r.user_id, r.reason, r.description, r.status, r.created_at, r.resolved_at,
+           v.title as video_title,
+           u.username as reporter_username
+    FROM report r
+    JOIN video v ON r.video_id = v.id
+    JOIN user u ON r.user_id = u.id
+    WHERE r.id = p_report_id;
 END//
 
 DELIMITER ;

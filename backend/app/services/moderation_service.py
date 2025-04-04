@@ -26,7 +26,7 @@ def delete_video(video_id: int):
             )
         
         # Marcar el video como eliminado por incumplimiento
-        execute_procedure("sp_delete_video_by_admin", [video_id, "eliminado_por_incumplimiento"])
+        execute_procedure("sp_delete_video_by_admin", [video_id, "suspendido"])
         
         return {"message": "Video eliminado correctamente por incumplimiento"}
     except Exception as e:

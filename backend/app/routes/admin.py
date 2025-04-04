@@ -52,7 +52,7 @@ async def delete_user(user_id: int, _: dict = Depends(admin_only())):
 
 @router.put("/users/{user_id}/reset", response_model=StandardResponse)
 async def reset_user_password(user_id: int, password_data: PasswordReset, _: dict = Depends(admin_only())):
-    """Restablecer contraseu00f1a de usuario. Solo administradores (role_id=3)."""
+    """Restablecer contraseña de usuario. Solo administradores (role_id=3)."""
     admin_service.reset_user_password(user_id, password_data.new_password)
     return StandardResponse(message="SUCCESS")
 

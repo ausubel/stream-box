@@ -50,6 +50,13 @@ def change_user_status(user_id: int, status_value: str):
                 detail="Usuario no encontrado"
             )
         
+        # Verificar si el usuario es administrador
+        if user_details[0]["role_id"] == 3:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No se puede cambiar el estado de un administrador"
+            )
+        
         # Cambiar estado
         execute_procedure("sp_change_status", [user_id, status_value])
         
@@ -73,6 +80,13 @@ def delete_user(user_id: int):
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Usuario no encontrado"
+            )
+        
+        # Verificar si el usuario es administrador
+        if user_details[0]["role_id"] == 3:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No se puede eliminar un administrador"
             )
         
         # Eliminar usuario (en este caso, marcar como suspendido)
