@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     # Configuración de seguridad
     SECRET_KEY: str = os.getenv("SECRET_KEY", "tu_clave_secreta_aqui")
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 100
     
     # Configuración CORS
     CORS_ORIGINS: list = [

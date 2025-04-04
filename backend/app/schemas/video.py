@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Union
 from datetime import datetime
 
 class VideoBase(BaseModel):
@@ -12,7 +12,7 @@ class VideoBase(BaseModel):
 
 class VideoCreate(VideoBase):
     user_id: int
-    tags: List[int] = []
+    tags: List[Union[int, str]] = []  # Ahora acepta tanto IDs (int) como nombres (str)
 
 class VideoUpdate(BaseModel):
     title: Optional[str] = None
@@ -21,7 +21,7 @@ class VideoUpdate(BaseModel):
     type: Optional[str] = None
     status: Optional[str] = None
     thumbnail: Optional[str] = None
-    tags: Optional[List[int]] = None
+    tags: Optional[List[Union[int, str]]] = None  # También actualizado aquí
 
 class VideoInDB(VideoBase):
     id: int

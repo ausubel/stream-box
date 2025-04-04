@@ -178,14 +178,61 @@ CREATE PROCEDURE sp_create_video(
     IN p_tags JSON
 )
 BEGIN
+    DECLARE i INT DEFAULT 0;
+    DECLARE tag_count INT;
+    DECLARE tag_value VARCHAR(255);
+    DECLARE tag_id INT;
+    
     INSERT INTO video (user_id, title, youtube_link, description, type, status, thumbnail)
     VALUES (p_user_id, p_title, p_youtube_link, p_description, p_type, p_status, p_thumbnail);
 
     SET @last_insert_id = LAST_INSERT_ID();
+    
+    -- Obtener el número de etiquetas en el array JSON
+    SET tag_count = JSON_LENGTH(p_tags);
+    
+    -- Procesar cada etiqueta
+    WHILE i < tag_count DO
+        -- Obtener el valor de la etiqueta actual
+        SET tag_value = JSON_UNQUOTE(JSON_EXTRACT(p_tags, CONCAT('$[', i, ']')));
+        
+        -- Verificar si el valor es numérico (ID) o string (nombre)
+        IF tag_value REGEXP '^[0-9]+$' THEN
+            -- Es un ID numérico, usarlo directamente
+            SET tag_id = CAST(tag_value AS UNSIGNED);
+            
+            -- Verificar si el ID existe
+            IF NOT EXISTS (SELECT 1 FROM video_tag WHERE id = tag_id) THEN
+                -- Si no existe, crear una nueva etiqueta con este ID
+                INSERT IGNORE INTO video_tag (id, name, status) VALUES (tag_id, CONCAT('Tag ', tag_id), 'activo');
+            END IF;
+        ELSE
+            -- Es un nombre de etiqueta, buscar si ya existe
+            SELECT id INTO tag_id FROM video_tag WHERE name = tag_value LIMIT 1;
+            
+            -- Si no existe, crear una nueva etiqueta
+            IF tag_id IS NULL THEN
+                INSERT INTO video_tag (name, status) VALUES (tag_value, 'activo');
+                SET tag_id = LAST_INSERT_ID();
+            END IF;
+        END IF;
+        
+        -- Asociar la etiqueta al video
+        INSERT INTO video_tag_map (video_id, tag_id) VALUES (@last_insert_id, tag_id);
+        
+        SET i = i + 1;
+    END WHILE;
+END//
 
-    INSERT INTO video_tag_map (video_id, tag_id)
-    SELECT @last_insert_id, tag_id
-    FROM JSON_TABLE(p_tags, '$[*]' COLUMNS (tag_id INT PATH '$')) AS tags_json;
+DROP PROCEDURE IF EXISTS sp_get_video//
+
+CREATE PROCEDURE sp_get_video(
+    IN p_id INT
+)
+BEGIN
+    SELECT id, user_id, title, youtube_link, description, type, status, thumbnail, created_at
+    FROM video
+    WHERE id = p_id;
 END//
 
 DROP PROCEDURE IF EXISTS sp_get_videos//
@@ -274,23 +321,64 @@ CREATE PROCEDURE sp_update_video(
     IN p_tags JSON,
     IN p_thumbnail TEXT
 )
-BEGIN
+sp_update_video:BEGIN
+    DECLARE i INT DEFAULT 0;
+    DECLARE tag_count INT;
+    DECLARE tag_value VARCHAR(255);
+    DECLARE tag_id INT;
+    
     UPDATE video
     SET title = p_title,
         youtube_link = p_youtube_link,
         description = p_description,
         type = p_type,
-        status = p_status,
+        status = 'activo',
         thumbnail = p_thumbnail
     WHERE id = p_id;
 
-    UPDATE video_tag_map
-    SET status = 'suspendido'
+    -- Eliminar las asociaciones de etiquetas existentes
+    DELETE FROM video_tag_map
     WHERE video_id = p_id;
-
-    INSERT INTO video_tag_map (video_id, tag_id)
-    SELECT p_id, tag_id
-    FROM JSON_TABLE(p_tags, '$[*]' COLUMNS (tag_id INT PATH '$')) AS tags_json;
+    
+    -- Si no hay etiquetas, terminar
+    IF p_tags IS NULL THEN
+        LEAVE sp_update_video;
+    END IF;
+    
+    -- Obtener el número de etiquetas en el array JSON
+    SET tag_count = JSON_LENGTH(p_tags);
+    
+    -- Procesar cada etiqueta
+    WHILE i < tag_count DO
+        -- Obtener el valor de la etiqueta actual
+        SET tag_value = JSON_UNQUOTE(JSON_EXTRACT(p_tags, CONCAT('$[', i, ']')));
+        
+        -- Verificar si el valor es numérico (ID) o string (nombre)
+        IF tag_value REGEXP '^[0-9]+$' THEN
+            -- Es un ID numérico, usarlo directamente
+            SET tag_id = CAST(tag_value AS UNSIGNED);
+            
+            -- Verificar si el ID existe
+            IF NOT EXISTS (SELECT 1 FROM video_tag WHERE id = tag_id) THEN
+                -- Si no existe, crear una nueva etiqueta con este ID
+                INSERT IGNORE INTO video_tag (id, name, status) VALUES (tag_id, CONCAT('Tag ', tag_id), 'activo');
+            END IF;
+        ELSE
+            -- Es un nombre de etiqueta, buscar si ya existe
+            SELECT id INTO tag_id FROM video_tag WHERE name = tag_value LIMIT 1;
+            
+            -- Si no existe, crear una nueva etiqueta
+            IF tag_id IS NULL THEN
+                INSERT INTO video_tag (name, status) VALUES (tag_value, 'activo');
+                SET tag_id = LAST_INSERT_ID();
+            END IF;
+        END IF;
+        
+        -- Asociar la etiqueta al video
+        INSERT INTO video_tag_map (video_id, tag_id) VALUES (p_id, tag_id);
+        
+        SET i = i + 1;
+    END WHILE;
 END//
 
 DROP PROCEDURE IF EXISTS sp_delete_video//
@@ -346,7 +434,12 @@ CREATE PROCEDURE sp_get_album_by_user_id(
     IN p_user_id INT
 )
 BEGIN
-    SELECT id, user_id, title, description, thumbnail, created_at FROM album WHERE user_id = p_user_id AND status = 'activo';
+    SELECT a.id, a.user_id, a.title, a.description, a.thumbnail, a.created_at,
+           IFNULL((SELECT COUNT(*) FROM album_video_map avm 
+            JOIN video v ON avm.video_id = v.id 
+            WHERE avm.album_id = a.id AND v.status = 'activo'), 0) as video_count
+    FROM album a
+    WHERE a.user_id = p_user_id AND a.status = 'activo';
 END//
 
 DROP PROCEDURE IF EXISTS sp_update_album//

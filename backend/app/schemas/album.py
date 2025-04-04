@@ -24,4 +24,4 @@ class AlbumInDB(AlbumBase):
         from_attributes = True
 
 class AlbumResponse(AlbumInDB):
-    pass
+    video_count: int = 0

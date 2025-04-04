@@ -18,24 +18,19 @@ router = APIRouter(
 async def create_video(video: VideoCreate, current_user: dict = Depends(get_current_user)):
     """Crea un nuevo video en el sistema."""
     try:
-        # Convertir la lista de tags a formato JSON
-        tags_json = json.dumps(video.tags)
-        
-        # Llamar al procedimiento almacenado para crear video
+        processed_tags = [str(tag) if isinstance(tag, int) else tag for tag in video.tags]
+        tags_json = json.dumps(processed_tags)
         execute_procedure(
             "sp_create_video",
             [video.user_id, video.title, video.youtube_link, video.description, 
-             video.type, video.status, video.thumbnail, tags_json]
+             video.type, 'activo', video.thumbnail, tags_json]
         )
-        
-        # Aquu00ed deberu00edamos obtener el video reciu00e9n creado
-        # Por ahora, devolvemos los datos enviados
         return StandardResponse(
             data={
-                "id": 1,  # Esto deberu00eda ser el ID real
+                "id": 1,
                 **video.dict(),
-                "created_at": "2025-03-28T00:00:00",  # Esto deberu00eda ser la fecha real
-                "tags": []  # Esto deberu00eda ser la lista real de tags
+                "created_at": "2025-03-28T00:00:00",
+                "tags": processed_tags
             },
             message="SUCCESS"
         )
@@ -60,7 +55,7 @@ async def get_videos():
         )
 
 def get_all_videos_by_type(video_type: str):
-    """Funciu00f3n auxiliar para obtener videos por tipo."""
+    """Función auxiliar para obtener videos por tipo."""
     videos = execute_procedure("sp_get_videos_by_type", [video_type])
     return process_video_data(videos)
 
@@ -89,8 +84,8 @@ async def get_recorded_videos():
         )
 
 @router.get("/search", response_model=StandardResponse[List[VideoResponse]])
-async def search_videos(q: str = Query(..., description="Tu00e9rmino de bu00fasqueda")):
-    """Busca videos por tu00edtulo, canal o palabra clave."""
+async def search_videos(q: str = Query(..., description="Término de búsqueda")):
+    """Busca videos por título, canal o palabra clave."""
     try:
         videos = execute_procedure("sp_search_videos", [q])
         processed_videos = process_video_data(videos)
@@ -103,7 +98,7 @@ async def search_videos(q: str = Query(..., description="Tu00e9rmino de bu00fasq
 
 @router.get("/tags", response_model=StandardResponse[List])
 async def get_video_tags():
-    """Obtiene todas las categoru00edas/etiquetas disponibles."""
+    """Obtiene todas las categorías/etiquetas disponibles."""
     try:
         tags = execute_procedure("sp_get_video_tags")
         print(tags)
@@ -116,7 +111,7 @@ async def get_video_tags():
 
 @router.get("/{video_id}", response_model=StandardResponse[VideoResponse])
 async def get_video(video_id: int):
-    """Obtiene los detalles de un video especifico."""
+    """Obtiene los detalles de un video específico."""
     try:
         video_details = execute_procedure("sp_get_video", [video_id])
         if not video_details:
@@ -138,7 +133,7 @@ async def get_video(video_id: int):
 
 @router.get("/user/{user_id}", response_model=StandardResponse[List[VideoResponse]])
 async def get_videos_by_user(user_id: int):
-    """Obtiene todos los videos de un usuario especifico."""
+    """Obtiene todos los videos de un usuario específico."""
     try:
         videos = execute_procedure("sp_get_videos_by_user", [user_id])
         processed_videos = process_video_data(videos)
@@ -177,25 +172,44 @@ async def update_video(video_id: int, video: VideoUpdate, current_user: dict = D
         # Convertir tags a JSON si estu00e1n presentes
         tags_json = None
         if "tags" in update_data:
-            tags_json = json.dumps(update_data["tags"])
+            # Procesar las etiquetas para asegurar que sean del formato correcto
+            processed_tags = [str(tag) if isinstance(tag, int) else tag for tag in update_data["tags"]]
+            tags_json = json.dumps(processed_tags)
+            update_data["tags"] = processed_tags
+        
+        # Guardar el estado actual para asegurarnos de que podamos recuperar el video despuu00e9s de actualizar
+        current_status = video_details[0]["status"]
+        new_status = update_data.get("status", current_status)
         
         # Actualizar video
         execute_procedure(
             "sp_update_video",
             [video_id, 
-             update_data.get("title"), 
-             update_data.get("youtube_link"),
-             update_data.get("description"), 
-             update_data.get("type"),
-             update_data.get("status"),
-             update_data.get("thumbnail"),
-             tags_json]
+             update_data.get("title", video_details[0]["title"]), 
+             update_data.get("youtube_link", video_details[0]["youtube_link"]),
+             update_data.get("description", video_details[0]["description"]), 
+             update_data.get("type", video_details[0]["type"]),
+             new_status,
+             tags_json,
+             update_data.get("thumbnail", video_details[0]["thumbnail"])]
         )
         
-        # Obtener los detalles actualizados
-        updated_video = execute_procedure("sp_get_video", [video_id])
-        processed_video = process_single_video_data(updated_video[0])
-        return StandardResponse(data=processed_video, message="SUCCESS")
+        # Construir manualmente el objeto de respuesta con los datos actualizados
+        # ya que sp_get_video solo devuelve videos activos
+        response_data = {
+            "id": video_id,
+            "user_id": video_details[0]["user_id"],
+            "title": update_data.get("title", video_details[0]["title"]),
+            "youtube_link": update_data.get("youtube_link", video_details[0]["youtube_link"]),
+            "description": update_data.get("description", video_details[0]["description"]),
+            "type": update_data.get("type", video_details[0]["type"]),
+            "status": new_status,
+            "thumbnail": update_data.get("thumbnail", video_details[0]["thumbnail"]),
+            "created_at": video_details[0]["created_at"],
+            "tags": update_data.get("tags", [])
+        }
+        
+        return StandardResponse(data=response_data, message="SUCCESS")
     except Exception as e:
         if isinstance(e, HTTPException):
             raise e
