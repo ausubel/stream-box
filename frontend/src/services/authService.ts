@@ -51,7 +51,6 @@ export const authService = {
       }
 
       const rawResult = await response.json();
-      console.log('Raw login response:', JSON.stringify(rawResult, null, 2));
       
       // Verificar que la respuesta tenga la estructura esperada
       if (!rawResult.data || !rawResult.data.access_token) {
@@ -75,7 +74,6 @@ export const authService = {
         token: token
       };
 
-      console.log('Usuario creado:', user);
 
       // Guardar token y usuario en localStorage
       localStorage.setItem('token', token);
@@ -130,7 +128,6 @@ export const authService = {
 
     try {
       const userData = JSON.parse(userStr);
-      console.log('Usuario recuperado de localStorage (raw):', userData);
       
       // Asegurarse de que el rol es válido
       if (!userData.role || !['consumer', 'creator', 'admin'].includes(userData.role)) {
@@ -157,7 +154,6 @@ export const authService = {
         lastLogin: userData.lastLogin
       };
       
-      console.log('Usuario recuperado de localStorage (procesado):', user);
       return user;
     } catch (error) {
       console.error('Error al parsear usuario:', error);

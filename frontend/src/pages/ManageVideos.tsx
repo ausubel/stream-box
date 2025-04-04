@@ -100,7 +100,6 @@ export default function ManageVideos() {
         typeof tag === 'object' && 'name' in tag ? tag.name : tag
       );
       setAvailableTags(formattedTags);
-      console.log('Etiquetas disponibles:', tagsResponse);
     } catch (error) {
       console.error('Error al cargar etiquetas:', error);
       // No mostramos toast de error para no molestar al usuario
@@ -110,7 +109,6 @@ export default function ManageVideos() {
   const handleAddTag = () => {
     if (tagInput.trim() && !tags.includes(tagInput.trim())) {
       const newTags = [...tags, tagInput.trim()];
-      console.log('Agregando etiqueta:', tagInput.trim(), 'Tags actuales:', newTags);
       setTags(newTags);
       setTagInput('');
     } else if (tagInput.trim() && tags.includes(tagInput.trim())) {

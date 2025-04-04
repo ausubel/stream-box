@@ -95,7 +95,6 @@ export default function Admin() {
     try {
       setLoading(prev => ({ ...prev, videos: true }));
       const response = await api.get('/admin/videos');
-      console.log('Videos recibidos:', response.data);
       if (response.data && response.data.data) {
         setVideos(response.data.data);
       }

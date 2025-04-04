@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuthHook';
@@ -16,6 +16,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [showRegister, setShowRegister] = useState(false);
   const [animating, setAnimating] = useState(false);
+  const [currentImage, setCurrentImage] = useState(1);
   const { signIn } = useAuth();
   const navigate = useNavigate();
   const API_URL = 'http://localhost:8000';
@@ -93,6 +94,15 @@ export default function Login() {
       setLoading(false);
     }
   };
+
+  // Efecto para el carrusel automático
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentImage((prev) => (prev % 3) + 1);
+    }, 2000);
+
+    return () => clearInterval(timer);
+  }, []);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -273,10 +283,11 @@ export default function Login() {
         </div>
         
         {/* Panel lateral (derecha) */}
-        <div className="hidden md:block md:w-1/2 bg-indigo-600 p-6 text-white flex flex-col justify-center items-center text-center">
-          <div className={`transition-all duration-500 ease-in-out transform ${!showRegister ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-            <h1 className="text-2xl font-bold mb-4">¡Hola, amigo!</h1>
-            <p className="mb-8 text-sm">Regístrate con tus datos personales para usar todas las funciones del sitio</p>
+        <div className="hidden md:block md:w-1/2 bg-indigo-600 p-6 text-white flex flex-col justify-center items-center text-center h-full">
+          <div className={`transition-all duration-500 ease-in-out transform ${!showRegister ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'} flex flex-col items-center justify-center w-full`}>
+            <div className="w-full mb-8"></div>
+              <h1 className="text-2xl font-bold mb-4 text-center">¡Hola, amigo!</h1>
+              <p className="mb-8 text-sm text-center">Regístrate con tus datos personales para usar todas las funciones del sitio</p>
             <button 
               onClick={() => toggleForm(true)}
               className="py-2 px-8 border-2 border-white rounded-full font-medium hover:bg-white hover:text-indigo-600 transition-colors text-sm"
@@ -284,14 +295,28 @@ export default function Login() {
             >
               REGISTRARSE
             </button>
+            <div className="w-64 h-64 mt-6 rounded-lg overflow-hidden border-2 border-white/30 relative">
+              <div className="relative w-full h-full">
+                {[1, 2, 3].map((num) => (
+                  <img
+                    key={num}
+                    src={`/carrusel/${num}.webp`}
+                    alt={`Carrusel ${num}`}
+                    className={`absolute top-0 left-0 w-full h-full object-cover transition-opacity duration-500 ${
+                      currentImage === num ? 'opacity-100' : 'opacity-0'
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
           </div>
           
-          <div className={`transition-all duration-500 ease-in-out transform ${showRegister ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-            <h1 className="text-2xl font-bold mb-4">¡Bienvenido de nuevo!</h1>
-            <p className="mb-8 text-sm">Ingresa tus datos personales para usar todas las funciones del sitio</p>
+          <div className={`transition-all duration-500 ease-in-out transform ${showRegister ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'} flex flex-col items-center justify-center w-full`}>
+            <h1 className="text-2xl font-bold mb-4 text-center">¡Bienvenido de nuevo!</h1>
+            <p className="mb-8 text-sm text-center">Ingresa tus datos personales para usar todas las funciones del sitio</p>
             <button 
               onClick={() => toggleForm(false)}
-              className="py-2 px-8 border-2 border-white rounded-full font-medium hover:bg-white hover:text-indigo-600 transition-colors text-sm"
+              className="py-2 px-8 bg-white text-indigo-600 rounded-full font-medium hover:bg-opacity-90 transition-colors text-sm"
               disabled={animating}
             >
               INICIAR SESIÓN

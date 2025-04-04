@@ -5,8 +5,9 @@ import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/pagination';
 import { toast } from 'sonner';
-import { ChevronRight, ChevronLeft, Play } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Play, Flag, X } from 'lucide-react';
 import { getYoutubeThumbnail } from '../services/videoService';
+import axios from 'axios';
 
 // Tipo para los videos
 interface Video {
@@ -91,6 +92,11 @@ function Home() {
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  // Estados para el modal de reporte
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [reportDescription, setReportDescription] = useState('');
+  const [reportLoading, setReportLoading] = useState(false);
 
   // Obtener videos en vivo y grabados
   useEffect(() => {
@@ -194,6 +200,62 @@ function Home() {
   const closeVideoModal = () => {
     setShowModal(false);
     setSelectedVideo(null);
+  };
+
+  // Funciones para el modal de reporte
+  const openReportModal = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Evitar que se cierre el modal de video
+    setShowReportModal(true);
+  };
+
+  const closeReportModal = () => {
+    setShowReportModal(false);
+    setReportReason('');
+    setReportDescription('');
+  };
+
+  const handleSubmitReport = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedVideo) return;
+
+    try {
+      setReportLoading(true);
+      const token = localStorage.getItem('token');
+      
+      // Verificar si el usuario está autenticado
+      if (!token) {
+        toast.error('Debes iniciar sesión para reportar videos');
+        return;
+      }
+      
+      // Obtener el ID del usuario del token
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const userId = payload.sub;
+      
+      await axios.post(
+        'http://localhost:8000/reports/',
+        {
+          video_id: selectedVideo.id,
+          user_id: userId,
+          reason: reportReason,
+          description: reportDescription
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      toast.success('Reporte enviado correctamente');
+      closeReportModal();
+    } catch (error) {
+      console.error('Error al enviar reporte:', error);
+      toast.error('Error al enviar el reporte. Asegúrate de estar conectado.');
+    } finally {
+      setReportLoading(false);
+    }
   };
 
   return (
@@ -453,6 +515,54 @@ function Home() {
                   allowFullScreen
                 ></iframe>
               </div>
+              <button 
+                className="absolute top-4 right-4 text-white hover:text-gray-300"
+                onClick={(e) => openReportModal(e)}
+              >
+                <Flag className="w-6 h-6" />
+              </button>
+              {showReportModal && (
+                <div className="absolute top-0 right-0 w-full h-full bg-black/80 p-4">
+                  <h3 className="text-lg font-bold mb-4">Reportar video</h3>
+                  <form onSubmit={handleSubmitReport}>
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium mb-2">Razón del reporte</label>
+                      <select 
+                        className="block w-full p-2 pl-10 text-sm text-gray-700 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        value={reportReason}
+                        onChange={(e) => setReportReason(e.target.value)}
+                      >
+                        <option value="">Seleccione una razón</option>
+                        <option value="contenido_inapropiado">Contenido inapropiado</option>
+                        <option value="violacion_derechos_autor">Violación de derechos de autor</option>
+                        <option value="otro">Otro</option>
+                      </select>
+                    </div>
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium mb-2">Descripción del reporte</label>
+                      <textarea 
+                        className="block w-full p-2 pl-10 text-sm text-gray-700 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        value={reportDescription}
+                        onChange={(e) => setReportDescription(e.target.value)}
+                      />
+                    </div>
+                    <button 
+                      className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
+                      type="submit"
+                      disabled={reportLoading}
+                    >
+                      {reportLoading ? 'Enviando...' : 'Enviar reporte'}
+                    </button>
+                    <button 
+                      className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors ml-2"
+                      type="button"
+                      onClick={closeReportModal}
+                    >
+                      Cancelar
+                    </button>
+                  </form>
+                </div>
+              )}
             </div>
           </div>
         )}

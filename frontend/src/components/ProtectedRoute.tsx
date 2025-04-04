@@ -42,7 +42,6 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   // Verificar si el usuario tiene el rol requerido
   if (requireAuth && user && allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
-    console.log('Usuario no tiene el rol requerido:', user.role, 'Roles permitidos:', allowedRoles);
     return <Navigate to="/" replace />;
   }
 
